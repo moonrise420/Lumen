@@ -1,11 +1,11 @@
 # Lumen TODO (for a later / public update)
 
-## Recents: last-frame thumbnails
-- Show each recent app's last frame instead of its icon.
-- System app: list tasks (getRecentTasks → taskId), then ActivityTaskManager.getTaskSnapshot(taskId)
-  → HardwareBuffer → Bitmap.wrapHardwareBuffer(), via reflection (hidden APIs, API 30).
-- Falls back to the app icon/banner when no snapshot (secure windows e.g. Netflix return blank).
-- Needs on-device testing per app.
+## Placement presets
+- Save keystone + orientation as named presets (Table / Ceiling / Shelf) and switch in one tap.
+- Keystone lives in system properties (`persist.sys.keystone.*` corner points + `keystoneAngle`),
+  orientation in `user_rotation`. The idea: snapshot those into a preset and restore them on demand.
+- Needs careful on-device testing (a wrong write misaligns the live picture, so always save the
+  current values first and keep a one-tap restore).
 
 ## Debloat menu (opt-in)
 - A screen in Advanced listing known-safe bloat to remove.

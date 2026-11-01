@@ -213,7 +213,6 @@ public class HomeActivity extends Base {
                 Ui.chip(this, t, "cast", Lang.t("Cast", "Spiegeln"), v -> menu(Lang.t("Screen mirroring (Miracast)", "Handy spiegeln (Miracast)"),
                         new String[]{Lang.t("Start – Wi-Fi pauses until you press Back", "Starten – WLAN pausiert, bis du mit Zurück beendest"), Lang.t("Cancel", "Abbrechen")}, i -> { if (i == 0) Acts.mirror(this); })),
                 Ui.chip(this, t, "apps", Lang.t("All apps", "Alle Apps"), v -> startActivity(new Intent(this, AppsActivity.class))),
-                Ui.chip(this, t, "clock", Lang.t("Recent", "Zuletzt"), v -> startActivity(new Intent(this, RecentsActivity.class))),
                 Ui.chip(this, t, "size", Lang.t("Picture size", "Bildgröße"), v -> startActivity(new Intent(this, ScreenSizeActivity.class))),
                 cinema,
                 Ui.chip(this, t, "film", Lang.t("Mode", "Modus"), v -> menu(Lang.t("Choose mode", "Modus wählen"), Acts.sceneNames(), i -> Acts.applyScene(this, i))),
@@ -271,7 +270,7 @@ public class HomeActivity extends Base {
         favVBox.removeAllViews();
 
         // ---- "Zuletzt" row: the apps you most recently used, as larger tiles ----
-        List<String> recent = recentApps(5);
+        List<String> recent = recentApps(3);
         if (!recent.isEmpty()) {
             TextView rh = Ui.one(this, Lang.t("RECENT", "ZULETZT"), 15, L.geo(this), t.accent);
             rh.setLetterSpacing(0.22f);
@@ -379,10 +378,15 @@ public class HomeActivity extends Base {
         Ui.focus(tile, t, 1.07f, r, null);
         tile.setOnClickListener(v -> L.launch(this, pkg));
         tile.setOnLongClickListener(v -> { L.start(this, new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg))); return true; });
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(L.s(268), L.s(150));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(L.s(240), L.s(135));
         if (margin) lp.leftMargin = L.s(16);
         tile.setLayoutParams(lp);
-        loadArt(pkg, img, ic, nm, fb);
+        // Prefer the app's own last frame (captured by the accessibility helper); fall back to banner/icon.
+        L.IO.execute(() -> {
+            android.graphics.Bitmap thumb = Thumbs.load(this, pkg);
+            if (thumb != null) L.UI.post(() -> { img.setImageBitmap(thumb); fb.setVisibility(View.GONE); });
+            else loadArt(pkg, img, ic, nm, fb);
+        });
         return tile;
     }
 
@@ -603,6 +607,10 @@ public class HomeActivity extends Base {
 
     @Override protected void onResume() {
         super.onResume();
+        if (L.p(this).getInt("thumbsV", 0) < 2) {   // drop any black/stale frames cached by the old capture logic
+            Thumbs.clear(this);
+            L.p(this).edit().putInt("thumbsV", 2).apply();
+        }
         registerReceiver(tick, new IntentFilter(Intent.ACTION_TIME_TICK));
         long adv = RemoteService.openAdvancedAt;   // the ☰ Menu key bounced us here — go straight on to Advanced
         if (adv > 0 && SystemClock.elapsedRealtime() - adv < 8000) {   // generous: the stock menu can be slow to open first

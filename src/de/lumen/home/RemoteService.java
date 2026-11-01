@@ -96,10 +96,102 @@ public class RemoteService extends AccessibilityService {
             }
             return;
         }
+        trackThumb(pkg);
         if (pkg.equals(curPkg) || pkg.equals("com.android.systemui") || pkg.equals("android")) return;
         if (L.launchIntent(this, pkg) == null && !pkg.equals(getPackageName())) return;
         if (curPkg != null && !curPkg.equals(getPackageName())) lastApp = curPkg;
         curPkg = pkg;
+    }
+
+    // ---- last-frame thumbnails for the recents row -------------------------------------------------
+    // No task snapshots on this box (TV + low-RAM), so we screenshot the foreground app ourselves and
+    // keep the latest frame per package. Refreshes every few seconds while an app is in front, so what
+    // the home screen shows is close to the frame you left it on. Off by default of the "thumbs" setting.
+    private String thumbPkg;
+    private long lastShot;
+    private volatile boolean thumbGood;   // saved a real (non-blank) frame during this foreground visit
+    private long thumbStart;              // when the current app came to the front (elapsedRealtime)
+
+    private void trackThumb(String pkg) {
+        if (pkg.equals(getPackageName())) { stopThumbs(); return; }                // back on the launcher: keep the last frame
+        if (pkg.equals("com.android.systemui") || pkg.equals("android")) return;   // transient overlay, leave the timer running
+        if (L.launchIntent(this, pkg) == null) return;                             // not a launchable app
+        startThumbs(pkg);
+    }
+
+    private void startThumbs(String pkg) {
+        if (!L.p(this).getBoolean("thumbs", true)) return;
+        if (pkg.equals(thumbPkg)) return;
+        thumbPkg = pkg;
+        thumbGood = false;
+        thumbStart = android.os.SystemClock.elapsedRealtime();
+        L.UI.removeCallbacks(thumbTick);
+        L.UI.postDelayed(thumbTick, 1200);                                         // let the app paint its first real frame
+    }
+
+    void stopThumbs() {
+        thumbPkg = null;
+        L.UI.removeCallbacks(thumbTick);
+    }
+
+    static void disableThumbs(android.content.Context c) {
+        if (inst != null) inst.stopThumbs();
+        Thumbs.clear(c);
+    }
+
+    private final Runnable thumbTick = new Runnable() {
+        @Override public void run() {
+            String p = thumbPkg;
+            if (p == null) return;
+            snap(p);
+            // Apps paint a black splash first, so keep trying quickly until we catch a real frame; once we have one,
+            // just refresh now and then. Secure apps (e.g. Prime) stay black — give up the fast retries so we don't hammer.
+            long elapsed = android.os.SystemClock.elapsedRealtime() - thumbStart;
+            long next = thumbGood ? 30000 : (elapsed < 15000 ? 1500 : 30000);
+            L.UI.postDelayed(this, next);
+        }
+    };
+
+    private void snap(String pkg) {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (now - lastShot < 1100) return;                                         // platform rate-limits screenshots to ~1/sec
+        lastShot = now;
+        try {
+            takeScreenshot(android.view.Display.DEFAULT_DISPLAY, L.IO, new TakeScreenshotCallback() {
+                @Override public void onSuccess(ScreenshotResult res) {
+                    try {
+                        android.hardware.HardwareBuffer hb = res.getHardwareBuffer();
+                        android.graphics.Bitmap hw = android.graphics.Bitmap.wrapHardwareBuffer(hb, res.getColorSpace());
+                        android.graphics.Bitmap soft = hw == null ? null : hw.copy(android.graphics.Bitmap.Config.ARGB_8888, false);
+                        if (hw != null) hw.recycle();
+                        hb.close();
+                        if (soft == null) return;
+                        if (isBlank(soft)) { soft.recycle(); return; }                  // secure window / black splash: keep the icon
+                        Thumbs.save(RemoteService.this, pkg, soft);                     // save() recycles it
+                        if (pkg.equals(thumbPkg)) thumbGood = true;
+                    } catch (Throwable ignored) {}
+                }
+                @Override public void onFailure(int err) {}
+            });
+        } catch (Throwable ignored) {}
+    }
+
+    /** True for a pure-black frame (secure windows such as Prime return black) or a flat solid splash — never shown. */
+    private static boolean isBlank(android.graphics.Bitmap b) {
+        int w = b.getWidth(), h = b.getHeight();
+        if (w == 0 || h == 0) return true;
+        int cols = 16, rows = 9, max = 0, min = 255;
+        for (int yi = 0; yi < rows; yi++) {
+            int y = h * (yi * 2 + 1) / (rows * 2);
+            for (int xi = 0; xi < cols; xi++) {
+                int x = w * (xi * 2 + 1) / (cols * 2);
+                int c = b.getPixel(x, y);
+                int lum = ((c >> 16 & 0xFF) + (c >> 8 & 0xFF) + (c & 0xFF)) / 3;
+                if (lum > max) max = lum;
+                if (lum < min) min = lum;
+            }
+        }
+        return max < 24 || (max - min) < 10;
     }
 
     // ---- used by sleep timer, menus, phone page ----

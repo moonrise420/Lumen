@@ -72,7 +72,6 @@
         <activity android:name=".WifiActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".BluetoothActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".NetworkActivity" android:exported="false" android:screenOrientation="landscape" />
-        <activity android:name=".RecentsActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".AboutActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".FirstRunActivity" android:exported="false" android:screenOrientation="landscape" />
 

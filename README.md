@@ -15,7 +15,7 @@ I got one of those cheap little HY300 projectors, and the launcher it shipped wi
 ## What it does
 
 ### A home screen that's actually nice
-Your favourites front and center, a big clock, weather and status at a glance. Plus **ten themes** you can mix however you like (fonts, glass, corners, accent colour).
+Your favourites front and center, a big clock, weather and status at a glance. The apps you used last sit in their own row up top, each showing a live preview of where you left off instead of a flat icon. Plus **ten themes** you can mix however you like (fonts, glass, corners, accent colour).
 
 ![Themes](docs/img/themes.png)
 
