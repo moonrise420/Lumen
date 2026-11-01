@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 final class L {
     private L() {}
 
-    static final String VERSION = "1.0"; // shown as "LUMEN V1.0" top-left
+    static final String VERSION = "1.1"; // shown as "LUMEN V1.1" top-left
     static boolean BOLD = false; // readability: bolder text everywhere
 
     /** Everything is laid out for a 1280x720 screen and scaled by F. */
