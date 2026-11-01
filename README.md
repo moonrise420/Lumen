@@ -47,9 +47,14 @@ English and German throughout.
 
 Lumen is an Android launcher (an APK). A couple of ways onto your HY300 (or another Android TV box):
 
-**Just the app.** Grab the APK from the [Releases](../../releases) page. Then sideload it with `adb install Lumen.apk`, or copy it onto a USB stick and open it with a file manager, and press **Home** to choose Lumen as your home screen.
+**Which file?** Both APKs are on the [Releases](../../releases) page.
 
-**The full system version.** A few extras (live picture zoom, silent self-updates, reboot, key injection) need system privileges. That works on boxes whose firmware trusts the public AOSP platform key, which a lot of cheap Android TV boxes do. Build or sign the `-System` APK and `adb install` it.
+- HY300 owners: grab `Lumen-1.1-HY300-system.apk`. It installs as a system app and unlocks the extras (live picture zoom, silent self-update, reboot). It also works on other boxes that trust the public AOSP platform key.
+- `Lumen-1.1.apk` is the plain build for any other Android TV box. It installs as a normal launcher and the system-only extras just stay hidden.
+
+Same app and same features in both. The only difference is signing: the system build is signed with the AOSP platform key the HY300 trusts, and that is what grants the extra privileges.
+
+**Installing it.** Sideload with `adb install <file>.apk`, or copy it onto a USB stick and open it with a file manager, then press **Home** to choose Lumen as your home screen.
 
 **Build it yourself.** You need the Android SDK command-line tools (build-tools 37, an `android-36` platform) and a JDK. Then one script does everything (aapt2 → javac → d8 → zipalign → apksigner):
 
