@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.pm.PackageInstaller;
 import android.net.Uri;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -17,35 +18,64 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Lumen self-update from a URL the owner controls. The URL returns JSON {"version":"1.1","apk":"https://…/Lumen.apk","notes":"…"}.
- * The APK must be signed with the same platform key, or the system rejects the update. As a system app Lumen installs it silently.
+ * Lumen self-update. By default it checks this project's latest GitHub release and installs the matching APK
+ * (the "system" asset on a system build, the normal one otherwise). A custom updateUrl (JSON {version, apk})
+ * overrides GitHub. The GitHub check needs the repo to be public (no token is shipped). The APK must be signed
+ * with the same key as the installed app, or the system rejects it; as a system app Lumen installs it silently.
  */
 final class Updater {
     private Updater() {}
+
+    /** This project's releases. The latest one is checked when no custom updateUrl is set. */
+    static final String GITHUB_API = "https://api.github.com/repos/moonrise420/Lumen/releases/latest";
 
     static String url(Context c) { return L.p(c).getString("updateUrl", ""); }
 
     interface Cb { void done(String msg); }
 
     static void check(Context c, boolean manual, Cb cb) {
-        String u = url(c);
-        if (u.isEmpty()) { cb.done(Lang.t("Set an update URL first", "Erst eine Update-Adresse eintragen")); return; }
+        String custom = url(c);
         L.IO.execute(() -> {
             try {
-                String js = new String(get(u), StandardCharsets.UTF_8);
-                JSONObject o = new JSONObject(js);
-                String ver = o.getString("version");
-                String apk = o.getString("apk");
+                String ver, apk;
+                if (!custom.isEmpty()) {                        // your own version.json {version, apk}
+                    JSONObject o = new JSONObject(new String(get(custom), StandardCharsets.UTF_8));
+                    ver = o.getString("version");
+                    apk = o.getString("apk");
+                } else {                                         // latest GitHub release (needs a public repo)
+                    JSONObject o = new JSONObject(new String(get(GITHUB_API), StandardCharsets.UTF_8));
+                    String tag = o.optString("tag_name", "");
+                    ver = tag.startsWith("v") ? tag.substring(1) : tag;
+                    apk = pickAsset(o.optJSONArray("assets"), Sys.on());
+                    if (ver.isEmpty() || apk == null) { L.UI.post(() -> cb.done(Lang.t("No release found", "Keine Version gefunden"))); return; }
+                }
                 if (!newer(ver, L.VERSION)) { L.UI.post(() -> cb.done(Lang.t("Lumen is up to date (v" + L.VERSION + ")", "Lumen ist aktuell (v" + L.VERSION + ")"))); return; }
-                L.UI.post(() -> cb.done(Lang.t("Downloading v" + ver + " …", "Lade v" + ver + " …")));
-                byte[] data = get(apk);
+                final String fver = ver, fapk = apk;
+                L.UI.post(() -> cb.done(Lang.t("Downloading v" + fver + " …", "Lade v" + fver + " …")));
+                byte[] data = get(fapk);
                 File f = new File(c.getCacheDir(), "update.apk");
                 try (OutputStream os = new FileOutputStream(f)) { os.write(data); }
-                install(c, f, ver, cb);
+                install(c, f, fver, cb);
             } catch (Throwable t) {
                 L.UI.post(() -> cb.done(Lang.t("Update check failed", "Update fehlgeschlagen")));
             }
         });
+    }
+
+    /** From a GitHub release's assets, pick the right APK: the "system" one on a system build, otherwise the normal one. */
+    private static String pickAsset(JSONArray assets, boolean system) {
+        if (assets == null) return null;
+        String match = null, anyApk = null;
+        for (int i = 0; i < assets.length(); i++) {
+            JSONObject a = assets.optJSONObject(i);
+            if (a == null) continue;
+            String name = a.optString("name", "").toLowerCase();
+            String dl = a.optString("browser_download_url", "");
+            if (!name.endsWith(".apk") || dl.isEmpty()) continue;
+            if (anyApk == null) anyApk = dl;
+            if (name.contains("system") == system && match == null) match = dl;
+        }
+        return match != null ? match : anyApk;
     }
 
     /** Silent install via PackageInstaller (works because Lumen is a system app with INSTALL_PACKAGES). */

@@ -450,10 +450,10 @@ public class AdvancedActivity extends Base {
         open(l, "lock", "Über Lumen & Datenschutz", "Was Lumen nutzt · keine Datensammlung · kein Server", () -> startActivity(new Intent(this, AboutActivity.class)));
         head(l, "Lumen & Updates");
         info(l, "info", "Lumen-Version", () -> "v" + L.VERSION + "  ·  by Soulride");
-        Ui.Row up = Ui.action(this, t, "net", "Nach Updates suchen", "Lädt aus deiner Update-Quelle", () -> "›", null);
+        Ui.Row up = Ui.action(this, t, "net", "Nach Updates suchen", Lang.t("Newest version from GitHub", "Neueste Version von GitHub"), () -> "›", null);
         up.setOnClickListener(v -> { up.value.setText("…"); Updater.check(this, true, msg -> up.value.setText(msg)); });
         add(l, up);
-        Ui.Row uu = Ui.action(this, t, "gear", "Update-Adresse", "URL zu version.json, das du selbst hostest", () -> Updater.url(this).isEmpty() ? "nicht gesetzt" : "gesetzt", null);
+        Ui.Row uu = Ui.action(this, t, "gear", "Update-Adresse", Lang.t("Optional: your own version.json instead of GitHub", "Optional: eigene version.json statt GitHub"), () -> Updater.url(this).isEmpty() ? "nicht gesetzt" : "gesetzt", null);
         uu.setOnClickListener(v -> Keyboard.ask(this, t, "Update-URL (JSON)", Updater.url(this), p -> { L.p(this).edit().putString("updateUrl", p == null ? "" : p.trim()).apply(); uu.refresh(); }));
         add(l, uu);
         head(l, "Gerät");
