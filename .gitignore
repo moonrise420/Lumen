@@ -1,0 +1,14 @@
+# build output
+build/
+*.apk
+
+# signing material — never commit
+keystore/
+platformkey/
+*.jks
+*.pk8
+*.pem
+password.txt
+
+# generated
+*.zip
